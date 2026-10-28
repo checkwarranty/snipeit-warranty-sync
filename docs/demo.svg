@@ -1,0 +1,105 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 820 420" width="100%" height="auto">
+  <defs>
+    <style>
+      .window-bg { fill: #0d1117; stroke: #30363d; stroke-width: 1; rx: 10px; }
+      .header-bg { fill: #161b22; rx: 10px; }
+      .term-btn-red { fill: #ff5f56; }
+      .term-btn-yellow { fill: #ffbd2e; }
+      .term-btn-green { fill: #27c93f; }
+      .title-text { fill: #8b949e; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; font-size: 13px; font-weight: 500; }
+      .cmd-text { font-family: "SF Mono", "Consolas", "Monaco", monospace; font-size: 13px; fill: #c9d1d9; }
+      .prompt { fill: #58a6ff; font-weight: bold; }
+      .log-info { fill: #7ee787; font-weight: bold; }
+      .log-warn { fill: #d29922; }
+      .log-brand { fill: #79c0ff; }
+      .log-detail { fill: #e3b341; }
+      .log-success { fill: #56d364; }
+      
+      @keyframes typeLine1 { 0% { opacity: 0; } 10% { opacity: 1; } 100% { opacity: 1; } }
+      @keyframes typeLine2 { 0% { opacity: 0; } 15% { opacity: 0; } 25% { opacity: 1; } 100% { opacity: 1; } }
+      @keyframes typeLine3 { 0% { opacity: 0; } 30% { opacity: 0; } 40% { opacity: 1; } 100% { opacity: 1; } }
+      @keyframes typeLine4 { 0% { opacity: 0; } 45% { opacity: 0; } 55% { opacity: 1; } 100% { opacity: 1; } }
+      @keyframes typeLine5 { 0% { opacity: 0; } 60% { opacity: 0; } 70% { opacity: 1; } 100% { opacity: 1; } }
+      @keyframes typeLine6 { 0% { opacity: 0; } 75% { opacity: 0; } 85% { opacity: 1; } 100% { opacity: 1; } }
+      @keyframes typeLine7 { 0% { opacity: 0; } 90% { opacity: 0; } 95% { opacity: 1; } 100% { opacity: 1; } }
+
+      .line1 { animation: typeLine1 10s infinite; }
+      .line2 { animation: typeLine2 10s infinite; }
+      .line3 { animation: typeLine3 10s infinite; }
+      .line4 { animation: typeLine4 10s infinite; }
+      .line5 { animation: typeLine5 10s infinite; }
+      .line6 { animation: typeLine6 10s infinite; }
+      .line7 { animation: typeLine7 10s infinite; }
+    </style>
+  </defs>
+
+  <!-- Terminal Window Background -->
+  <rect x="1" y="1" width="818" height="418" class="window-bg" />
+  
+  <!-- Title Bar -->
+  <path d="M 1 11 A 10 10 0 0 1 11 1 L 809 1 A 10 10 0 0 1 819 11 L 819 40 L 1 40 Z" class="header-bg" />
+  <circle cx="20" cy="20" r="6" class="term-btn-red" />
+  <circle cx="40" cy="20" r="6" class="term-btn-yellow" />
+  <circle cx="60" cy="20" r="6" class="term-btn-green" />
+  <text x="410" y="24" text-anchor="middle" class="title-text">terminal — checkwarranty-snipeit-sync</text>
+
+  <!-- Terminal Content Lines -->
+  <g transform="translate(25, 75)" class="cmd-text">
+    <!-- Command Prompt -->
+    <text y="0">
+      <tspan class="prompt">$</tspan> python sync.py --limit 100 --brand dell
+    </text>
+
+    <!-- Line 1: Starting -->
+    <g class="line1" transform="translate(0, 32)">
+      <text y="0">
+        <tspan fill="#8b949e">[2026-10-28 22:15:01]</tspan> <tspan class="log-info">[INFO]</tspan> Starting Snipe-IT Sync (dry_run=False, limit=100)
+      </text>
+    </g>
+
+    <!-- Line 2: Fetched assets -->
+    <g class="line2" transform="translate(0, 64)">
+      <text y="0">
+        <tspan fill="#8b949e">[2026-10-28 22:15:02]</tspan> <tspan class="log-info">[INFO]</tspan> Fetched 42 Dell hardware assets from Snipe-IT.
+      </text>
+    </g>
+
+    <!-- Line 3: Querying Asset 1 -->
+    <g class="line3" transform="translate(0, 96)">
+      <text y="0">
+        <tspan fill="#8b949e">[2026-10-28 22:15:03]</tspan> <tspan class="log-info">[INFO]</tspan> Querying CheckWarranty: #104 [Tag: <tspan class="log-brand">8HG76F2</tspan>, Brand: dell]...
+      </text>
+    </g>
+
+    <!-- Line 4: Updated Asset 1 -->
+    <g class="line4" transform="translate(0, 128)">
+      <text y="0">
+        <tspan fill="#8b949e">[2026-10-28 22:15:04]</tspan> <tspan class="log-success">[SUCCESS]</tspan> Updated #104 → Warranty: <tspan class="log-detail">36 mos (exp: 2026-05-15)</tspan>, CPU: <tspan fill="#79c0ff">i7-1185G7</tspan>, RAM: <tspan fill="#79c0ff">16GB</tspan>
+      </text>
+    </g>
+
+    <!-- Line 5: Querying Asset 2 -->
+    <g class="line5" transform="translate(0, 160)">
+      <text y="0">
+        <tspan fill="#8b949e">[2026-10-28 22:15:05]</tspan> <tspan class="log-info">[INFO]</tspan> Querying CheckWarranty: #105 [Tag: <tspan class="log-brand">3KG98X1</tspan>, Brand: dell]...
+      </text>
+    </g>
+
+    <!-- Line 6: Updated Asset 2 -->
+    <g class="line6" transform="translate(0, 192)">
+      <text y="0">
+        <tspan fill="#8b949e">[2026-10-28 22:15:06]</tspan> <tspan class="log-success">[SUCCESS]</tspan> Updated #105 → Warranty: <tspan class="log-detail">36 mos (exp: 2027-01-20)</tspan>, Storage: <tspan fill="#79c0ff">512GB NVMe</tspan>
+      </text>
+    </g>
+
+    <!-- Line 7: Summary Complete -->
+    <g class="line7" transform="translate(0, 235)">
+      <text y="0" fill="#3fb950" font-weight="bold">
+        ========================================================================
+      </text>
+      <text y="24" fill="#3fb950" font-weight="bold">
+        ✓ Sync Complete! Processed: 42 | Updated: 39 | Not Found: 3 | Errors: 0
+      </text>
+    </g>
+  </g>
+</svg>

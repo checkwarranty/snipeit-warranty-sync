@@ -5,6 +5,11 @@ Automate hardware warranty tracking and factory hardware specification enrichmen
 ![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)
 ![Python: 3.8+](https://img.shields.io/badge/Python-3.8%2B-green.svg)
 ![Integration: Snipe--IT](https://img.shields.io/badge/ITAM-Snipe--IT-orange.svg)
+[![Release](https://img.shields.io/github/v/release/checkwarranty/snipeit-warranty-sync)](https://github.com/checkwarranty/snipeit-warranty-sync/releases/latest)
+
+<p align="center">
+  <img src="docs/demo.svg" alt="Terminal Demo" width="800">
+</p>
 
 ---
 
