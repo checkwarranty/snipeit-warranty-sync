@@ -1,0 +1,31 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "checkwarranty-snipeit-sync"
+version = "1.0.0"
+authors = [
+  { name = "CheckWarranty Team", email = "support@checkwarranty.info" },
+]
+description = "Automate hardware warranty tracking and factory hardware specs in Snipe-IT ITAM"
+readme = "README.md"
+requires-python = ">=3.8"
+license = { text = "MIT" }
+keywords = ["snipe-it", "itam", "warranty", "dell", "lenovo", "hp", "apple", "asset-management"]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+]
+dependencies = [
+    "python-dotenv>=1.0.0",
+]
+
+[project.urls]
+"Homepage" = "https://github.com/checkwarranty/snipeit-warranty-sync"
+"Bug Tracker" = "https://github.com/checkwarranty/snipeit-warranty-sync/issues"
+"Documentation" = "https://checkwarranty.info/docs/api"
+
+[project.scripts]
+checkwarranty-snipeit-sync = "sync:main"

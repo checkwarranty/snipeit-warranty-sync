@@ -149,14 +149,22 @@ FIELD_DISPLAY=_snipeit_screen_4
 0 2 * * * cd /opt/checkwarranty-snipeit-sync && .venv/bin/python sync.py >> /var/log/snipeit-warranty-sync.log 2>&1
 ```
 
-### Via Docker
+### Via Docker Container
+
+Run directly via GitHub Container Registry:
 
 ```bash
 docker run --rm \
   -e SNIPEIT_URL="https://assets.company.com" \
-  -e SNIPEIT_API_TOKEN="token" \
-  -e CHECKWARRANTY_API_KEY="cw_live_..." \
-  checkwarranty/snipeit-sync:latest
+  -e SNIPEIT_API_TOKEN="your_snipe_token" \
+  -e CHECKWARRANTY_API_KEY="cw_live_your_key" \
+  ghcr.io/checkwarranty/snipeit-warranty-sync:latest --dry-run
+```
+
+Or using `docker-compose.yml`:
+
+```bash
+docker compose run --rm warranty-sync
 ```
 
 ---
