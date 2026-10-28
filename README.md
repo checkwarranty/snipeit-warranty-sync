@@ -125,9 +125,27 @@ python sync.py --force --limit 200
 ## How Snipe-IT Warranty Calculation Works
 
 In Snipe-IT, `warranty_expires` is a **dynamically calculated field** derived from `purchase_date` + `warranty_months`.
-- The synchronizer automatically populates `purchase_date` (from manufacturer shipment / start date if blank in Snipe-IT).
-- It calculates `warranty_months` between the start date and expiration date, updating Snipe-IT native warranty records.
-- For manufacturers like Dell where start dates are optional, you can also map the exact expiration date directly to a custom date field via `FIELD_WARRANTY_EXPIRATION`.
+* The synchronizer automatically populates `purchase_date` (from manufacturer shipment / start date if blank in Snipe-IT).
+* It calculates `warranty_months` between the start date and expiration date, updating Snipe-IT native warranty records.
+* For manufacturers like Dell where start dates are optional, you can also map the exact expiration date directly to a custom date field via `FIELD_WARRANTY_EXPIRATION`.
+
+---
+
+## Live CheckWarranty API Overview
+
+The connector interfaces with CheckWarranty's Unified REST API, standardizing multi-vendor warranty lookups and factory As-Built specifications into a predictable JSON payload.
+
+<p align="center">
+  <img src="docs/images/checkwarranty-api-overview.png" alt="CheckWarranty Unified REST API Overview" width="750">
+</p>
+
+### Single Device Real-Time Lookup
+
+Each queried serial is checked against `/api/v1/devices/lookup` (or `/api/v1/scan/single`), returning confirmed expiration dates and component tiers (CPU, RAM, SSD):
+
+<p align="center">
+  <img src="docs/images/checkwarranty-api-lookup.png" alt="CheckWarranty Single Lookup Endpoint" width="750">
+</p>
 
 ---
 
