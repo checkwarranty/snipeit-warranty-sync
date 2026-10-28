@@ -42,7 +42,7 @@ def detect_brand(serial: str, model_name: str = "") -> Optional[str]:
         return "dell"
     if any(k in m_lower for k in ("lenovo", "thinkpad", "thinkcentre", "ideapad", "thinkstation")):
         return "lenovo"
-    if any(k in m_lower for k in ("hp", "elitebook", "probook", "zbook", "compaq")):
+    if re.search(r"\b(hp|hewlett[\s-]packard|elitebook|probook|zbook|compaq)\b", m_lower):
         return "hp"
     if any(k in m_lower for k in ("apple", "macbook", "imac", "mac mini", "mac studio")):
         return "apple"
@@ -57,6 +57,34 @@ def detect_brand(serial: str, model_name: str = "") -> Optional[str]:
     if len(s_upper) == 12 and s_upper.startswith("C02"):
         return "apple"
 
+    return None
+
+
+def calculate_warranty_months(start_date_str: Optional[str], end_date_str: Optional[str]) -> Optional[int]:
+    """
+    Calculate warranty duration in months between start and end dates.
+    Snipe-IT computes warranty expiration dynamically from purchase_date + warranty_months.
+    """
+    if not start_date_str or not end_date_str:
+        return None
+    try:
+        d1 = datetime.strptime(start_date_str, "%Y-%m-%d")
+        d2 = datetime.strptime(end_date_str, "%Y-%m-%d")
+        if d2 <= d1:
+            return 0
+        diff_days = (d2 - d1).days
+        months = round(diff_days / 30.4375)
+        return max(1, months)
+    except ValueError:
+        return None
+
+
+def extract_snipe_date(val: Any) -> Optional[str]:
+    """Safely extract date string from Snipe-IT API format (string or dict)."""
+    if isinstance(val, dict):
+        return val.get("date")
+    if isinstance(val, str) and val.strip():
+        return val.strip()
     return None
 
 
@@ -87,17 +115,33 @@ class SnipeItClient:
             logger.error(f"Snipe-IT connection error: {e}")
             raise
 
-    def get_hardware_assets(self, limit: int = 100, offset: int = 0) -> List[Dict[str, Any]]:
-        """Fetch a page of hardware assets from Snipe-IT."""
-        url = f"{self.base_url}/api/v1/hardware?limit={limit}&offset={offset}&sort=id&order=asc"
-        res = self._request("GET", url)
-        return res.get("rows", [])
+    def get_hardware_assets(self, total_limit: int = 100, page_size: int = 50) -> List[Dict[str, Any]]:
+        """Fetch hardware assets from Snipe-IT with automatic pagination up to total_limit."""
+        all_assets: List[Dict[str, Any]] = []
+        offset = 0
+
+        while len(all_assets) < total_limit:
+            fetch_count = min(page_size, total_limit - len(all_assets))
+            url = f"{self.base_url}/api/v1/hardware?limit={fetch_count}&offset={offset}&sort=id&order=asc"
+            res = self._request("GET", url)
+            rows = res.get("rows", [])
+            if not rows:
+                break
+            all_assets.extend(rows)
+            offset += len(rows)
+            if len(rows) < fetch_count:
+                break
+
+        return all_assets
 
     def update_asset(self, asset_id: int, payload: Dict[str, Any]) -> bool:
-        """Update an existing asset in Snipe-IT."""
+        """Update an existing asset in Snipe-IT. Handles validation errors returned with HTTP 200."""
         url = f"{self.base_url}/api/v1/hardware/{asset_id}"
         try:
-            self._request("PATCH", url, payload)
+            res = self._request("PATCH", url, payload)
+            if isinstance(res, dict) and res.get("status") == "error":
+                logger.error(f"Snipe-IT rejected update for asset #{asset_id}: {res.get('messages')}")
+                return False
             return True
         except Exception as e:
             logger.error(f"Failed to update Snipe-IT asset #{asset_id}: {e}")
@@ -209,11 +253,12 @@ def run_sync(args: argparse.Namespace) -> None:
         "ram": os.getenv("FIELD_RAM", "").strip(),
         "storage": os.getenv("FIELD_STORAGE", "").strip(),
         "display": os.getenv("FIELD_DISPLAY", "").strip(),
+        "warranty_exp": os.getenv("FIELD_WARRANTY_EXPIRATION", "").strip(),
     }
 
     logger.info(f"Starting Snipe-IT Sync (dry_run={args.dry_run}, limit={args.limit}, force={args.force})")
 
-    assets = snipe.get_hardware_assets(limit=args.limit)
+    assets = snipe.get_hardware_assets(total_limit=args.limit)
     logger.info(f"Fetched {len(assets)} hardware assets from Snipe-IT.")
 
     stats = {"processed": 0, "updated": 0, "skipped": 0, "not_found": 0, "errors": 0}
@@ -222,7 +267,8 @@ def run_sync(args: argparse.Namespace) -> None:
         asset_id = asset.get("id")
         serial = (asset.get("serial") or "").strip()
         model_name = (asset.get("model", {}).get("name") or "") if isinstance(asset.get("model"), dict) else ""
-        existing_warranty = asset.get("warranty_expires", {}).get("date") if isinstance(asset.get("warranty_expires"), dict) else None
+        existing_warranty = extract_snipe_date(asset.get("warranty_expires"))
+        existing_purchase = extract_snipe_date(asset.get("purchase_date"))
 
         if not serial:
             stats["skipped"] += 1
@@ -253,12 +299,24 @@ def run_sync(args: argparse.Namespace) -> None:
 
         update_payload: Dict[str, Any] = {}
 
-        if end_date:
-            update_payload["warranty_expires"] = end_date
-        if start_date and not asset.get("purchase_date"):
+        # 1. Update purchase_date in Snipe-IT if start_date is confirmed and purchase_date is blank
+        if start_date and not existing_purchase:
             update_payload["purchase_date"] = start_date
+            effective_start_date = start_date
+        else:
+            effective_start_date = existing_purchase
 
-        # Enrich custom specs if configured in .env
+        # 2. Compute Snipe-IT native warranty_months (Snipe-IT computes warranty_expires = purchase_date + warranty_months)
+        if effective_start_date and end_date:
+            months = calculate_warranty_months(effective_start_date, end_date)
+            if months is not None and months > 0:
+                update_payload["warranty_months"] = months
+
+        # 3. Direct custom field for exact warranty expiration date (e.g. Dell where startDate is optional)
+        if custom_fields["warranty_exp"] and end_date:
+            update_payload[custom_fields["warranty_exp"]] = end_date
+
+        # 4. Enrich custom hardware specs if configured in .env
         if custom_fields["cpu"] and details.get("processor"):
             update_payload[custom_fields["cpu"]] = details["processor"]
         if custom_fields["ram"] and details.get("memory"):
@@ -278,7 +336,7 @@ def run_sync(args: argparse.Namespace) -> None:
         else:
             success = snipe.update_asset(asset_id, update_payload)
             if success:
-                logger.info(f"Successfully updated asset #{asset_id} ({serial}) -> Warranty: {end_date}")
+                logger.info(f"Successfully updated asset #{asset_id} ({serial}) -> Payload: {update_payload}")
                 stats["updated"] += 1
             else:
                 stats["errors"] += 1

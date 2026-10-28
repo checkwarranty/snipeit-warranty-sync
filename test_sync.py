@@ -12,7 +12,15 @@ import sys
 # Ensure sync can be imported
 sys.path.insert(0, os.path.dirname(__file__))
 
-from sync import detect_brand, format_iso_to_date, SnipeItClient, CheckWarrantyClient, run_sync
+from sync import (
+    detect_brand,
+    format_iso_to_date,
+    calculate_warranty_months,
+    extract_snipe_date,
+    SnipeItClient,
+    CheckWarrantyClient,
+    run_sync,
+)
 import argparse
 
 
@@ -22,7 +30,12 @@ class TestSnipeItSync(unittest.TestCase):
         self.assertEqual(detect_brand("UNKNOWN123", "Dell Latitude 5420"), "dell")
         self.assertEqual(detect_brand("UNKNOWN123", "ThinkPad T14 Gen 2"), "lenovo")
         self.assertEqual(detect_brand("UNKNOWN123", "HP EliteBook 840 G8"), "hp")
+        self.assertEqual(detect_brand("UNKNOWN123", "Hewlett-Packard ProBook"), "hp")
         self.assertEqual(detect_brand("UNKNOWN123", "MacBook Pro 16"), "apple")
+
+    def test_detect_brand_avoids_substring_false_positives(self):
+        # "Sharp Display" should not falsely match "hp"
+        self.assertIsNone(detect_brand("UNKNOWN123", "Sharp Aquos Monitor"))
 
     def test_detect_brand_by_serial_syntax(self):
         self.assertEqual(detect_brand("8HG76F2"), "dell")  # 7-char alphanumeric
@@ -36,16 +49,54 @@ class TestSnipeItSync(unittest.TestCase):
         self.assertIsNone(format_iso_to_date(None))
         self.assertIsNone(format_iso_to_date("invalid-date"))
 
+    def test_calculate_warranty_months(self):
+        # 36 months (3 years)
+        self.assertEqual(calculate_warranty_months("2023-01-01", "2026-01-01"), 36)
+        # 12 months (1 year)
+        self.assertEqual(calculate_warranty_months("2024-05-15", "2025-05-15"), 12)
+        # 6 months
+        self.assertEqual(calculate_warranty_months("2024-01-01", "2024-07-01"), 6)
+        # Same date
+        self.assertEqual(calculate_warranty_months("2024-01-01", "2024-01-01"), 0)
+        # Invalid / missing dates
+        self.assertIsNone(calculate_warranty_months(None, "2024-01-01"))
+        self.assertIsNone(calculate_warranty_months("bad-date", "2024-01-01"))
+
+    def test_extract_snipe_date(self):
+        self.assertEqual(extract_snipe_date({"date": "2026-04-11"}), "2026-04-11")
+        self.assertEqual(extract_snipe_date("2026-04-11"), "2026-04-11")
+        self.assertIsNone(extract_snipe_date(None))
+        self.assertIsNone(extract_snipe_date({}))
+
     @patch("sync.SnipeItClient._request")
-    def test_snipeit_get_assets(self, mock_request):
-        mock_request.return_value = {"rows": [{"id": 1, "serial": "PF4TEST"}]}
+    def test_snipeit_get_assets_pagination(self, mock_request):
+        # Simulate 2 pages of assets
+        mock_request.side_effect = [
+            {"rows": [{"id": 1, "serial": "PF4TEST1"}, {"id": 2, "serial": "PF4TEST2"}]},
+            {"rows": [{"id": 3, "serial": "PF4TEST3"}]},
+        ]
 
         client = SnipeItClient("https://assets.example.com", "token123")
-        assets = client.get_hardware_assets(limit=10)
+        assets = client.get_hardware_assets(total_limit=3, page_size=2)
 
-        self.assertEqual(len(assets), 1)
-        self.assertEqual(assets[0]["serial"], "PF4TEST")
-        mock_request.assert_called_once()
+        self.assertEqual(len(assets), 3)
+        self.assertEqual(assets[0]["serial"], "PF4TEST1")
+        self.assertEqual(assets[2]["serial"], "PF4TEST3")
+        self.assertEqual(mock_request.call_count, 2)
+
+    @patch("sync.SnipeItClient._request")
+    def test_snipeit_update_asset_handles_error_status(self, mock_request):
+        client = SnipeItClient("https://assets.example.com", "token123")
+
+        # HTTP 200 with error payload (Snipe-IT pattern)
+        mock_request.return_value = {"status": "error", "messages": "Asset tag already exists"}
+        success = client.update_asset(10, {"warranty_months": 12})
+        self.assertFalse(success)
+
+        # HTTP 200 with success
+        mock_request.return_value = {"status": "success", "messages": "Asset updated"}
+        success = client.update_asset(10, {"warranty_months": 12})
+        self.assertTrue(success)
 
     @patch("sync.CheckWarrantyClient._request")
     def test_checkwarranty_lookup_success(self, mock_request):
@@ -73,11 +124,12 @@ class TestSnipeItSync(unittest.TestCase):
         "SNIPEIT_URL": "https://assets.example.com",
         "SNIPEIT_API_TOKEN": "token123",
         "CHECKWARRANTY_API_KEY": "cw_live_123",
-        "FIELD_CPU": "_snipeit_cpu_1"
+        "FIELD_CPU": "_snipeit_cpu_1",
+        "FIELD_WARRANTY_EXPIRATION": "_snipeit_warranty_exp_5",
     })
     @patch("sync.SnipeItClient")
     @patch("sync.CheckWarrantyClient")
-    def test_run_sync_dry_run(self, mock_cw_cls, mock_snipe_cls):
+    def test_run_sync_execution(self, mock_cw_cls, mock_snipe_cls):
         mock_snipe = MagicMock()
         mock_snipe_cls.return_value = mock_snipe
         mock_snipe.get_hardware_assets.return_value = [
@@ -85,7 +137,8 @@ class TestSnipeItSync(unittest.TestCase):
                 "id": 101,
                 "serial": "8HG76F2",
                 "model": {"name": "Dell Latitude 5420"},
-                "warranty_expires": None
+                "warranty_expires": None,
+                "purchase_date": None,
             }
         ]
 
@@ -94,16 +147,23 @@ class TestSnipeItSync(unittest.TestCase):
         mock_cw.lookup_device.return_value = {
             "status": "completed",
             "warranty": {
-                "endDate": "2025-10-01T00:00:00.000Z",
+                "startDate": "2023-01-01T00:00:00.000Z",
+                "endDate": "2026-01-01T00:00:00.000Z",
                 "details": {"processor": "Intel Core i5-1145G7"}
             }
         }
+        mock_snipe.update_asset.return_value = True
 
-        args = argparse.Namespace(dry_run=True, limit=10, brand=None, force=False, verbose=False)
+        args = argparse.Namespace(dry_run=False, limit=10, brand=None, force=False, verbose=False)
         run_sync(args)
 
-        # In dry run, update_asset should NOT be called
-        mock_snipe.update_asset.assert_not_called()
+        mock_snipe.update_asset.assert_called_once()
+        call_id, payload = mock_snipe.update_asset.call_args[0]
+        self.assertEqual(call_id, 101)
+        self.assertEqual(payload["purchase_date"], "2023-01-01")
+        self.assertEqual(payload["warranty_months"], 36)
+        self.assertEqual(payload["_snipeit_warranty_exp_5"], "2026-01-01")
+        self.assertEqual(payload["_snipeit_cpu_1"], "Intel Core i5-1145G7")
 
 
 if __name__ == "__main__":

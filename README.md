@@ -117,12 +117,22 @@ python sync.py --force --limit 200
 
 ---
 
+## How Snipe-IT Warranty Calculation Works
+
+In Snipe-IT, `warranty_expires` is a **dynamically calculated field** derived from `purchase_date` + `warranty_months`.
+- The synchronizer automatically populates `purchase_date` (from manufacturer shipment / start date if blank in Snipe-IT).
+- It calculates `warranty_months` between the start date and expiration date, updating Snipe-IT native warranty records.
+- For manufacturers like Dell where start dates are optional, you can also map the exact expiration date directly to a custom date field via `FIELD_WARRANTY_EXPIRATION`.
+
+---
+
 ## Custom Field Mapping (Optional)
 
-If your Snipe-IT instance has custom fields configured for hardware components, you can map CheckWarranty factory specifications directly to them in `.env`:
+If your Snipe-IT instance has custom fields configured for hardware components or expiration dates, map them in `.env`:
 
 ```ini
 # Custom field DB column names from Snipe-IT (Settings -> Custom Fields)
+FIELD_WARRANTY_EXPIRATION=_snipeit_warranty_exp_5
 FIELD_CPU=_snipeit_cpu_1
 FIELD_RAM=_snipeit_ram_2
 FIELD_STORAGE=_snipeit_storage_3
