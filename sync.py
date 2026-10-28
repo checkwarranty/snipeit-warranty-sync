@@ -82,7 +82,8 @@ def calculate_warranty_months(start_date_str: Optional[str], end_date_str: Optio
 def extract_snipe_date(val: Any) -> Optional[str]:
     """Safely extract date string from Snipe-IT API format (string or dict)."""
     if isinstance(val, dict):
-        return val.get("date")
+        d = val.get("date")
+        return d.strip() if isinstance(d, str) and d.strip() else None
     if isinstance(val, str) and val.strip():
         return val.strip()
     return None
@@ -92,7 +93,7 @@ class SnipeItClient:
     """Handles communication with the Snipe-IT REST API using urllib."""
 
     def __init__(self, base_url: str, api_token: str):
-        self.base_url = base_url.rstrip("/")
+        self.base_url = (base_url or "").strip().rstrip("/")
         self.headers = {
             "Authorization": f"Bearer {api_token}",
             "Accept": "application/json",
@@ -152,7 +153,7 @@ class CheckWarrantyClient:
     """Handles communication with the CheckWarranty B2B REST API using urllib."""
 
     def __init__(self, base_url: str, api_key: str):
-        self.base_url = base_url.rstrip("/")
+        self.base_url = (base_url or "").strip().rstrip("/")
         self.headers = {
             "X-API-Key": api_key,
             "Accept": "application/json",
@@ -213,9 +214,15 @@ class CheckWarrantyClient:
         for attempt in range(max_retries):
             time.sleep(4)
             res = self._request("GET", f"/devices/scans/{batch_id}")
-            if res and res.get("status") == "completed":
+            if not res:
+                continue
+            status = res.get("status")
+            if status == "completed":
                 items = res.get("items", [])
                 return items[0] if items else res
+            if status in ("failed", "error", "not_found"):
+                logger.warning(f"CheckWarranty async scan ended with status: {status}")
+                return res
         return None
 
 
@@ -256,6 +263,10 @@ def run_sync(args: argparse.Namespace) -> None:
         "warranty_exp": os.getenv("FIELD_WARRANTY_EXPIRATION", "").strip(),
     }
 
+    if args.limit <= 0:
+        logger.error("--limit must be greater than 0.")
+        sys.exit(1)
+
     logger.info(f"Starting Snipe-IT Sync (dry_run={args.dry_run}, limit={args.limit}, force={args.force})")
 
     assets = snipe.get_hardware_assets(total_limit=args.limit)
@@ -270,7 +281,7 @@ def run_sync(args: argparse.Namespace) -> None:
         existing_warranty = extract_snipe_date(asset.get("warranty_expires"))
         existing_purchase = extract_snipe_date(asset.get("purchase_date"))
 
-        if not serial:
+        if not asset_id or not serial:
             stats["skipped"] += 1
             continue
 

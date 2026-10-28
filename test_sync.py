@@ -65,8 +65,25 @@ class TestSnipeItSync(unittest.TestCase):
     def test_extract_snipe_date(self):
         self.assertEqual(extract_snipe_date({"date": "2026-04-11"}), "2026-04-11")
         self.assertEqual(extract_snipe_date("2026-04-11"), "2026-04-11")
+        self.assertIsNone(extract_snipe_date({"date": "  "}))
         self.assertIsNone(extract_snipe_date(None))
         self.assertIsNone(extract_snipe_date({}))
+
+    def test_client_url_normalization(self):
+        snipe = SnipeItClient("  https://assets.example.com/  ", "tok")
+        self.assertEqual(snipe.base_url, "https://assets.example.com")
+        cw = CheckWarrantyClient("https://checkwarranty.info/api/v1/ ", "key")
+        self.assertEqual(cw.base_url, "https://checkwarranty.info/api/v1")
+
+    @patch("sync.time.sleep")
+    @patch("sync.CheckWarrantyClient._request")
+    def test_checkwarranty_poll_early_exit_on_failure(self, mock_request, mock_sleep):
+        mock_request.return_value = {"status": "failed", "error": "device_unreachable"}
+        cw = CheckWarrantyClient("https://checkwarranty.info/api/v1", "key")
+        res = cw._poll_batch_result("batch_xyz", max_retries=5)
+        # Must exit on first try when status is failed, not loop 5 times
+        self.assertEqual(mock_request.call_count, 1)
+        self.assertEqual(res["status"], "failed")
 
     @patch("sync.SnipeItClient._request")
     def test_snipeit_get_assets_pagination(self, mock_request):
