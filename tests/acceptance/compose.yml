@@ -1,0 +1,28 @@
+name: checkwarranty-snipe-acceptance
+services:
+  snipe:
+    image: snipe/snipe-it:v8.8.3
+    ports: ["127.0.0.1:18080:80"]
+    environment:
+      APP_KEY: base64:YWNjZXB0YW5jZS1vbmx5LW5vdC1wcm9kdWN0aW9uLTAw
+      APP_URL: http://127.0.0.1:18080
+      APP_ENV: testing
+      APP_DEBUG: "false"
+      APP_TIMEZONE: UTC
+      APP_LOCALE: en-US
+      DB_CONNECTION: mysql
+      DB_HOST: db
+      DB_DATABASE: snipe
+      DB_USERNAME: snipe
+      DB_PASSWORD: acceptance-only
+      MAIL_MAILER: log
+    depends_on: [db]
+    volumes:
+      - .:/opt/cw-testing:ro
+  db:
+    image: mariadb:10.11
+    environment:
+      MARIADB_DATABASE: snipe
+      MARIADB_USER: snipe
+      MARIADB_PASSWORD: acceptance-only
+      MARIADB_ROOT_PASSWORD: acceptance-only-root
