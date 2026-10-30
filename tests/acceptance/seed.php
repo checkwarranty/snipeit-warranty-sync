@@ -14,7 +14,7 @@ $manufacturer->saveOrFail();
 $field = new App\Models\CustomField();
 $field->name = 'Warranty Expiration';
 $field->format = 'DATE';
-$field->element = 'date';
+$field->element = 'date_picker';
 $field->saveOrFail();
 $fieldset = new App\Models\CustomFieldset();
 $fieldset->name = 'Acceptance Warranty';

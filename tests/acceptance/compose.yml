@@ -4,7 +4,7 @@ services:
     image: snipe/snipe-it:v8.8.3
     ports: ["127.0.0.1:18080:80"]
     environment:
-      APP_KEY: base64:YWNjZXB0YW5jZS1vbmx5LW5vdC1wcm9kdWN0aW9uLTAw
+      APP_KEY: base64:kE0Nim0VyoAiUYOK6xlo44S0fAR/e/R54IJxlf9xnnU=
       APP_URL: http://127.0.0.1:18080
       APP_ENV: testing
       APP_DEBUG: "false"
