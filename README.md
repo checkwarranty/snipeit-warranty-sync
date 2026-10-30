@@ -1,5 +1,9 @@
 # CheckWarranty &bull; Snipe-IT Asset Sync
 
+> **Dry-run and API credits:** `--dry-run` prevents writes to the target ITAM,
+> but still sends device serials to CheckWarranty and may consume live API credits.
+> Use a sandbox API key and `TEST-` serials for acceptance testing.
+
 Automate hardware warranty tracking and factory hardware specification enrichment in [Snipe-IT](https://snipeitapp.com/) using the [CheckWarranty API](https://checkwarranty.info/docs/api).
 
 ![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)
@@ -196,3 +200,18 @@ docker compose run --rm warranty-sync
 
 MIT License. Designed and maintained by the CheckWarranty team.
 For questions or API support, visit [CheckWarranty Documentation](https://checkwarranty.info/docs/api).
+
+## Installable CLI (1.0.1)
+
+Build and install locally with `python -m pip install .`, or install the wheel
+from a GitHub release. PyPI publication is pending account/publisher setup.
+The CLI command is `checkwarranty-snipeit-sync`.
+Use `--plan` to discover candidates without sending requests to CheckWarranty.
+`--dry-run` still queries CheckWarranty but suppresses writes to the target ITAM.
+
+Warranty start, purchase and manufacture dates are distinct. This connector never
+populates a purchase date from a warranty start. Exact expiration dates use the
+configured expiration custom field (Snipe-IT), NetBox date custom field, or a
+`[CheckWarranty] expiry=YYYY-MM-DD` marker in GLPI warranty notes. Native month
+intervals are written only when they reproduce the exact calendar expiration.
+A new CLI run creates a new idempotency key; this is not a cross-run cache.

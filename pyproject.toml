@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "checkwarranty-snipeit-sync"
-version = "1.0.0"
+version = "1.0.1"
 authors = [
   { name = "CheckWarranty Team", email = "support@checkwarranty.info" },
 ]
@@ -28,4 +28,7 @@ dependencies = [
 "Documentation" = "https://checkwarranty.info/docs/api"
 
 [project.scripts]
-checkwarranty-snipeit-sync = "sync:main"
+checkwarranty-snipeit-sync = "checkwarranty_snipeit_sync:main"
+
+[tool.setuptools]
+packages = ["checkwarranty_snipeit_sync"]

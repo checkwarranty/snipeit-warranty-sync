@@ -11,6 +11,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy sync script
 COPY sync.py .
+COPY checkwarranty_snipeit_sync ./checkwarranty_snipeit_sync
 
 USER appuser
 

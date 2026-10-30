@@ -177,8 +177,8 @@ class TestSnipeItSync(unittest.TestCase):
         mock_snipe.update_asset.assert_called_once()
         call_id, payload = mock_snipe.update_asset.call_args[0]
         self.assertEqual(call_id, 101)
-        self.assertEqual(payload["purchase_date"], "2023-01-01")
-        self.assertEqual(payload["warranty_months"], 36)
+        self.assertNotIn("purchase_date", payload)
+        self.assertNotIn("warranty_months", payload)
         self.assertEqual(payload["_snipeit_warranty_exp_5"], "2026-01-01")
         self.assertEqual(payload["_snipeit_cpu_1"], "Intel Core i5-1145G7")
 
