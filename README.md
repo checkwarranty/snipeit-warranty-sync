@@ -215,3 +215,10 @@ configured expiration custom field (Snipe-IT), NetBox date custom field, or a
 `[CheckWarranty] expiry=YYYY-MM-DD` marker in GLPI warranty notes. Native month
 intervals are written only when they reproduce the exact calendar expiration.
 A new CLI run creates a new idempotency key; this is not a cross-run cache.
+
+Scheduled runs rotate through target assets using `--state-file` (default:
+`~/.local/state/checkwarranty/snipe-it.json`). Run one scheduler process per
+state file. Plan/dry-run do not advance it. For Docker, preserve `/state` using a
+named volume, for example `-v checkwarranty-snipe-it-state:/state`; the supplied
+Compose file does this. The cursor stores only a target URL hash and an offset,
+not API keys. Removing it restarts discovery at the beginning.

@@ -7,6 +7,9 @@ Zero external dependencies required (uses standard library urllib/json).
 
 import os
 import calendar
+import hashlib
+import tempfile
+from pathlib import Path
 import sys
 import argparse
 import logging
@@ -18,6 +21,7 @@ from typing import Dict, Any, List, Optional
 from datetime import date, datetime
 import urllib.request
 import urllib.error
+import urllib.parse
 
 # Attempt to load .env if python-dotenv is available, otherwise read OS environment
 try:
@@ -106,21 +110,20 @@ class SnipeItClient:
         body = json.dumps(data).encode("utf-8") if data is not None else None
         req = urllib.request.Request(url, data=body, headers=self.headers, method=method)
         try:
-            with urllib.request.urlopen(req, timeout=30) as resp:
+            with urllib.request.build_opener(_NoRedirect()).open(req, timeout=30) as resp:
                 res_body = resp.read().decode("utf-8")
                 return json.loads(res_body) if res_body else {}
         except urllib.error.HTTPError as e:
-            err_body = e.read().decode("utf-8") if e.fp else ""
-            logger.error(f"Snipe-IT HTTP {e.code} error on {method} {url}: {err_body}")
+            logger.error(f"Snipe-IT HTTP {e.code} error on {method} {url}")
             raise
         except urllib.error.URLError as e:
             logger.error(f"Snipe-IT connection error: {e}")
             raise
 
-    def get_hardware_assets(self, total_limit: int = 100, page_size: int = 50) -> List[Dict[str, Any]]:
+    def get_hardware_assets(self, total_limit: int = 100, page_size: int = 50, start_offset: int = 0) -> List[Dict[str, Any]]:
         """Fetch hardware assets from Snipe-IT with automatic pagination up to total_limit."""
         all_assets: List[Dict[str, Any]] = []
-        offset = 0
+        offset = start_offset
 
         while len(all_assets) < total_limit:
             fetch_count = min(page_size, total_limit - len(all_assets))
@@ -150,11 +153,20 @@ class SnipeItClient:
             return False
 
 
+class _NoRedirect(urllib.request.HTTPRedirectHandler):
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        return None
+
+
 class CheckWarrantyClient:
     """Handles communication with the CheckWarranty B2B REST API using urllib."""
 
     def __init__(self, base_url: str, api_key: str):
         self.base_url = (base_url or "").strip().rstrip("/")
+        parts = urllib.parse.urlsplit(self.base_url)
+        local_test = parts.scheme == "http" and parts.hostname in ("127.0.0.1", "localhost", "::1")
+        if not parts.hostname or parts.username or parts.password or parts.query or parts.fragment or (parts.scheme != "https" and not local_test):
+            raise ValueError("CheckWarranty API URL must use HTTPS (HTTP is allowed only on loopback for tests)")
         self.headers = {
             "X-API-Key": api_key,
             "Accept": "application/json",
@@ -171,17 +183,16 @@ class CheckWarrantyClient:
 
         req = urllib.request.Request(url, data=body, headers=headers, method=method)
         try:
-            with urllib.request.urlopen(req, timeout=35) as resp:
+            with urllib.request.build_opener(_NoRedirect()).open(req, timeout=35) as resp:
                 res_body = resp.read().decode("utf-8")
                 return json.loads(res_body) if res_body else {}
         except urllib.error.HTTPError as e:
-            err_body = e.read().decode("utf-8") if e.fp else ""
             if e.code == 404:
                 return None
             if e.code == 402:
                 logger.error("CheckWarranty credit balance exhausted (HTTP 402). Top up credits at checkwarranty.info/dashboard/billing")
                 sys.exit(2)
-            logger.warning(f"CheckWarranty HTTP {e.code} for {path}: {err_body}")
+            logger.warning(f"CheckWarranty HTTP {e.code} for {path}")
             return None
         except urllib.error.URLError as e:
             logger.error(f"CheckWarranty connection error: {e}")
@@ -297,6 +308,37 @@ def build_asset_payload(warranty, specs, asset, custom_fields):
     return payload
 
 
+
+def read_cursor(args, target):
+    """Cursor is scoped to the target URL and contains no credentials or results."""
+    filename = getattr(args, "state_file", None)
+    if not filename:
+        return 0
+    try:
+        state = json.loads(Path(filename).expanduser().read_text())
+        if not isinstance(state, dict):
+            return 0
+        return max(0, int(state.get("offset", 0))) if state.get("target") == hashlib.sha256(target.encode()).hexdigest() else 0
+    except (OSError, ValueError, TypeError):
+        return 0
+
+
+def write_cursor(args, target, offset):
+    filename = getattr(args, "state_file", None)
+    if not filename or args.dry_run or getattr(args, "plan", False):
+        return
+    path = Path(filename).expanduser()
+    path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
+    fd, temporary = tempfile.mkstemp(dir=str(path.parent), prefix=".cw-cursor-")
+    try:
+        with os.fdopen(fd, "w") as stream:
+            json.dump({"target": hashlib.sha256(target.encode()).hexdigest(), "offset": offset}, stream)
+        os.replace(temporary, path)
+    finally:
+        if os.path.exists(temporary):
+            os.unlink(temporary)
+
+
 def run_sync(args: argparse.Namespace) -> None:
     snipeit_url = os.getenv("SNIPEIT_URL")
     snipeit_token = os.getenv("SNIPEIT_API_TOKEN")
@@ -306,7 +348,7 @@ def run_sync(args: argparse.Namespace) -> None:
     if not snipeit_url or not snipeit_token:
         logger.error("Missing SNIPEIT_URL or SNIPEIT_API_TOKEN in environment variables.")
         sys.exit(1)
-    if not cw_key:
+    if not cw_key and not getattr(args, "plan", False):
         logger.error("Missing CHECKWARRANTY_API_KEY in environment variables.")
         sys.exit(1)
 
@@ -327,7 +369,8 @@ def run_sync(args: argparse.Namespace) -> None:
 
     logger.info(f"Starting Snipe-IT Sync (dry_run={args.dry_run}, limit={args.limit}, force={args.force})")
 
-    assets = snipe.get_hardware_assets(total_limit=args.limit)
+    cursor = read_cursor(args, snipeit_url)
+    assets = snipe.get_hardware_assets(total_limit=args.limit, start_offset=cursor)
     logger.info(f"Fetched {len(assets)} hardware assets from Snipe-IT.")
 
     stats = {"processed": 0, "updated": 0, "skipped": 0, "not_found": 0, "errors": 0}
@@ -385,6 +428,7 @@ def run_sync(args: argparse.Namespace) -> None:
         # Courteous pacing
         time.sleep(0.3)
 
+    write_cursor(args, snipeit_url, cursor + len(assets) if len(assets) == args.limit else 0)
     logger.info("=" * 50)
     logger.info("Sync Execution Complete!")
     logger.info(f"Summary: {stats}")
@@ -400,6 +444,7 @@ def main():
     parser.add_argument("--verbose", action="store_true", help="Enable verbose logging")
 
     parser.add_argument("--plan", action="store_true", help="List assets needing lookup without calling CheckWarranty or writing changes.")
+    parser.add_argument("--state-file", default=os.environ.get("CHECKWARRANTY_STATE_FILE", str(Path.home() / ".local" / "state" / "checkwarranty" / "snipe-it.json")), help="Persistent cursor file; schedule one process per file.")
     args = parser.parse_args()
     if args.verbose:
         logger.setLevel(logging.DEBUG)

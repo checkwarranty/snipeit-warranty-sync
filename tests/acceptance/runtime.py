@@ -17,8 +17,11 @@ args = argparse.Namespace(dry_run=False, plan=True, limit=100, force=True, brand
 sync.run_sync(args)
 assert not REQUESTS
 args.plan=False
+args.state_file = "/tmp/cw-snipe-it-cursor.json"
+args.limit = 2
 with patch.object(sync.time, "sleep"):
-    sync.run_sync(args)
+    for _ in range(2):
+        sync.run_sync(args)
 client = sync.SnipeItClient(os.environ["SNIPEIT_URL"], auth["token"])
 rows = {row["serial"]: row for row in client.get_hardware_assets()}
 for kind in ("ENDONLY", "FULL", "ASYNC"):

@@ -4,8 +4,13 @@ services:
   warranty-sync:
     image: ghcr.io/checkwarranty/snipeit-warranty-sync:latest
     container_name: snipeit-warranty-sync
+    volumes:
+      - sync-state:/state
     restart: "no"
     env_file:
       - .env
     # Example: Run dry-run simulation first, or run with custom parameters
     command: ["--limit", "200"]
+
+volumes:
+  sync-state:

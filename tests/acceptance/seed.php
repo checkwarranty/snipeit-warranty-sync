@@ -15,7 +15,7 @@ $field = new App\Models\CustomField();
 $field->name = 'Warranty Expiration';
 $field->format = 'DATE';
 $field->element = 'date_picker';
-$field->saveOrFail();
+if (!$field->save()) { throw new RuntimeException('Cannot create acceptance custom field'); }
 $fieldset = new App\Models\CustomFieldset();
 $fieldset->name = 'Acceptance Warranty';
 $fieldset->saveOrFail();
