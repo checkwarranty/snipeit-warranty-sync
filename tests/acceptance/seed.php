@@ -44,4 +44,5 @@ foreach (['ENDONLY', 'FULL', 'NOTFOUND', 'ASYNC'] as $kind) {
     $asset->saveOrFail();
     $ids[$kind] = $asset->id;
 }
-echo json_encode(['token' => $token, 'field' => $field->db_column_name(), 'ids' => $ids]) . "\n";
+file_put_contents('/tmp/cw-snipe-auth.json', json_encode(['token' => $token, 'field' => $field->db_column_name(), 'ids' => $ids]));
+echo "Acceptance data seeded\n";
