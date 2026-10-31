@@ -12,8 +12,12 @@ docker compose exec -T snipe php artisan passport:client --personal --name=Accep
 docker compose exec -T snipe php artisan snipeit:create-admin --first_name=Acceptance --last_name=Admin --email=acceptance@example.invalid --username=acceptance --password=acceptance-only-password
 docker compose exec -T snipe php /opt/cw-testing/seed.php
 docker compose cp snipe:/tmp/cw-snipe-auth.json /tmp/cw-snipe-auth.json
+docker compose exec -T snipe chown -R www-data:www-data storage bootstrap/cache
 for attempt in $(seq 1 60); do
   if curl --fail --silent http://127.0.0.1:18080/login >/dev/null; then break; fi
   sleep 2
 done
-python3 runtime.py
+if ! python3 runtime.py; then
+  docker compose exec -T snipe sh -c 'tail -n 100 storage/logs/laravel*.log' >&2 || true
+  exit 1
+fi
