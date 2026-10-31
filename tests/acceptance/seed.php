@@ -2,6 +2,11 @@
 require '/var/www/html/vendor/autoload.php';
 $app = require '/var/www/html/bootstrap/app.php';
 $app->make(Illuminate\Contracts\Console\Kernel::class)->bootstrap();
+$settings = new App\Models\Setting();
+$settings->site_name = 'Acceptance';
+$settings->brand = 1;
+$settings->full_multiple_companies_support = 0;
+$settings->saveOrFail();
 $user = App\Models\User::where('username', 'acceptance')->firstOrFail();
 $token = $user->createToken('acceptance')->accessToken;
 $category = new App\Models\Category();
