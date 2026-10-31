@@ -26,7 +26,7 @@ Most enterprise IT teams and refurbishers maintain serial numbers in Snipe-IT, b
 2. Queries the official CheckWarranty B2B REST API for warranty coverage and factory component configurations.
 3. Automatically updates Snipe-IT asset records:
    - **Warranty Expiration Date** and coverage duration.
-   - **Purchase / Manufacture Date** (if available).
+   - **Purchase date preservation** (warranty and manufacture dates never replace it).
    - **Factory Specifications** (CPU model, RAM configuration, SSD capacity, display panel) mapped to your Snipe-IT custom fields.
 
 ---
@@ -129,8 +129,8 @@ python sync.py --force --limit 200
 ## How Snipe-IT Warranty Calculation Works
 
 In Snipe-IT, `warranty_expires` is a **dynamically calculated field** derived from `purchase_date` + `warranty_months`.
-* The synchronizer automatically populates `purchase_date` (from manufacturer shipment / start date if blank in Snipe-IT).
-* It calculates `warranty_months` between the start date and expiration date, updating Snipe-IT native warranty records.
+* The synchronizer preserves `purchase_date`; warranty start and manufacture dates never populate it.
+* It updates `warranty_months` only when the existing purchase date plus a whole number of calendar months reproduces the exact expiration date.
 * For manufacturers like Dell where start dates are optional, you can also map the exact expiration date directly to a custom date field via `FIELD_WARRANTY_EXPIRATION`.
 
 ---
@@ -145,7 +145,7 @@ The connector interfaces with CheckWarranty's Unified REST API, standardizing mu
 
 ### Single Device Real-Time Lookup
 
-Each queried serial is checked against `/api/v1/devices/lookup` (or `/api/v1/scan/single`), returning confirmed expiration dates and component tiers (CPU, RAM, SSD):
+Each queried serial is checked against `/api/v1/devices/lookup` (or `/api/v1/devices/auto-detect`), returning confirmed expiration dates and component tiers (CPU, RAM, SSD):
 
 <p align="center">
   <img src="docs/images/checkwarranty-api-lookup.png" alt="CheckWarranty Single Lookup Endpoint" width="750">

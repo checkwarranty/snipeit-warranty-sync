@@ -30,6 +30,8 @@ $model->saveOrFail();
 $status = new App\Models\Statuslabel();
 $status->name = 'Acceptance ready';
 $status->deployable = 1;
+$status->pending = 0;
+$status->archived = 0;
 $status->saveOrFail();
 $ids = [];
 foreach (['ENDONLY', 'FULL', 'NOTFOUND', 'ASYNC'] as $kind) {
