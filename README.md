@@ -29,6 +29,16 @@ Most enterprise IT teams and refurbishers maintain serial numbers in Snipe-IT, b
    - **Purchase date preservation** (warranty and manufacture dates never replace it).
    - **Factory Specifications** (CPU model, RAM configuration, SSD capacity, display panel) mapped to your Snipe-IT custom fields.
 
+### Official Warranty Verification & Hardware Specifications
+
+This integration connects to [CheckWarranty.info](https://checkwarranty.info) via the B2B REST API. Supported hardware lookups:
+- [Dell Service Tag & Warranty Lookup](https://checkwarranty.info/dell-service-tag-lookup) (includes As-Built BOM specs & ship date)
+- [Lenovo Serial Number Warranty Status](https://checkwarranty.info/lenovo-warranty-status) (ThinkPad, ThinkCentre, IdeaPad)
+- [HP Serial Number & Warranty Check](https://checkwarranty.info/hp-warranty-check) (desktops, laptops, printers & Care Pack)
+- [Apple Coverage & Warranty Check](https://checkwarranty.info/apple-warranty-check) (Mac, iPhone, iPad)
+- [Bulk Warranty Scanner for CSV / Excel](https://checkwarranty.info/bulk-warranty-check) (audit up to 500 devices at once)
+- [CheckWarranty REST API & ITAM Docs](https://checkwarranty.info/docs/api)
+
 ---
 
 ## Workflow Diagram
